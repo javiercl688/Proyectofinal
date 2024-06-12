@@ -1,19 +1,8 @@
 <?php
-// Establecer las cabeceras CORS
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-// Manejar solicitudes OPTIONS (preflight)
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 header('Content-Type: application/json');
 
 try {
-    // Conectar a la base de datos SQLite (creará el archivo si no existe)
+    // Asegúrate de que la ruta a la base de datos SQLite sea correcta
     $db = new PDO('sqlite:./database.sqlite');
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
