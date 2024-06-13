@@ -1,56 +1,77 @@
 <?php
-// Establecer las cabeceras CORS
+header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
+header('Access-Control-Allow-Headers: Content-Type');
 
-// Manejar solicitudes OPTIONS (preflight)
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
-    http_response_code(200);
-    exit();
+// Ruta al archivo de base de datos SQLite
+$databasePath = 'database.sqlite';
+
+// Crear conexión a la base de datos SQLite
+$conn = new PDO("sqlite:$databasePath");
+$conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+// Obtener el método HTTP
+$method = $_SERVER['REQUEST_METHOD'];
+
+// Manejar las solicitudes GET, POST, PUT y DELETE
+switch ($method) {
+    case 'GET':
+        handleGet($conn);
+        break;
+    case 'POST':
+        handlePost($conn);
+        break;
+    case 'PUT':
+        handlePut($conn);
+        break;
+    case 'DELETE':
+        handleDelete($conn);
+        break;
+    default:
+        echo json_encode(['message' => 'Método no soportado']);
+        break;
 }
 
-header('Content-Type: application/json');
+function handleGet($conn) {
+    $sql = "SELECT id, name FROM items";
+    $stmt = $conn->query($sql);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode(['items' => $items]);
+}
 
-try {
-    // Conectar a la base de datos SQLite (creará el archivo si no existe)
-    $db = new PDO('sqlite:./database.sqlite');
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+function handlePost($conn) {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $name = $data['name'];
 
-    // Crear la tabla si no existe
-    $db->exec("CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT
-    )");
+    $stmt = $conn->prepare("INSERT INTO items (name) VALUES (:name)");
+    $stmt->bindParam(':name', $name);
+    $stmt->execute();
 
-    $method = $_SERVER['REQUEST_METHOD'];
+    $id = $conn->lastInsertId();
+    echo json_encode(['id' => $id, 'name' => $name]);
+}
 
-    switch ($method) {
-        case 'GET':
-            $stmt = $db->query('SELECT * FROM items');
-            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            echo json_encode(['items' => $items]);
-            break;
+function handlePut($conn) {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id = $data['id'];
+    $name = $data['name'];
 
-        case 'POST':
-            $input = json_decode(file_get_contents('php://input'), true);
-            $name = $input['name'];
-            $stmt = $db->prepare('INSERT INTO items (name) VALUES (:name)');
-            $stmt->bindParam(':name', $name);
-            $stmt->execute();
-            $id = $db->lastInsertId();
-            echo json_encode(['id' => $id, 'name' => $name]);
-            break;
+    $stmt = $conn->prepare("UPDATE items SET name = :name WHERE id = :id");
+    $stmt->bindParam(':name', $name);
+    $stmt->bindParam(':id', $id);
+    $stmt->execute();
 
-        default:
-            http_response_code(405);
-            echo json_encode(['error' => 'Método no permitido']);
-            break;
-    }
-} catch (PDOException $e) {
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['id' => $id, 'name' => $name]);
+}
+
+function handleDelete($conn) {
+    $id = $_GET['id'];
+
+    $stmt = $conn->prepare("DELETE FROM items WHERE id = :id");
+    $stmt->bindParam(':id', $id);
+    $stmt->execute();
+
+    echo json_encode(['id' => $id]);
 }
 ?>
